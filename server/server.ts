@@ -2,7 +2,13 @@
 import express, { Request, Response } from "express";
 import fetch from "node-fetch";
 import cors from "cors";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { Bet, Player, PlayerCache, PlayerStats, ScoreboardResponse, SummaryResponse, NBABoxscore, NFLBoxscore } from "./types.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const DATE = "20251012";
 const LEAGUES = ["nfl", "nba"];
@@ -16,14 +22,16 @@ app.use(
   })
 );
 
+// Parse JSON request bodies
+app.use(express.json());
+
 const cache: PlayerCache = {}; // { playerNameLower: { team, stats, updatedAt } }
 
 // Bets structure: each bet is a parlay with multiple legs
 // NFL stats use format: "category_LABEL" (e.g., passing_YDS, rushing_YDS, receiving_REC)
-const bets: Bet[] = [
+let bets: Bet[] = [
   {
     id: "bet-1",
-    name: "Cross-League Monster",
     betAmount: 10,
     payoutAmount: 60,
     legs: [
@@ -34,7 +42,6 @@ const bets: Bet[] = [
   },
   {
     id: "bet-2",
-    name: "Rushing Attack",
     betAmount: 25,
     payoutAmount: 150,
     legs: [
@@ -45,7 +52,6 @@ const bets: Bet[] = [
   },
   {
     id: "bet-3",
-    name: "Receiving Stars",
     legs: [
       { player: "Ja'Marr Chase", stat: "receiving_REC", goal: 11, overOrUnder: "over", league: "nfl" },
       { player: "Ja'Marr Chase", stat: "receiving_YDS", goal: 90, overOrUnder: "over", league: "nfl" },
@@ -53,7 +59,6 @@ const bets: Bet[] = [
   },
   {
     id: "bet-4",
-    name: "Defensive Play",
     betAmount: 5,
     legs: [
       { player: "Rashan Gary", stat: "defensive_TOT", goal: 5, overOrUnder: "over", league: "nfl" },
@@ -62,7 +67,6 @@ const bets: Bet[] = [
   },
   {
     id: "bet-5",
-    name: "Low Volume Unders",
     payoutAmount: 100,
     legs: [
       { player: "Tucker Kraft", stat: "receiving_REC", goal: 4, overOrUnder: "under", league: "nfl" },
@@ -72,7 +76,6 @@ const bets: Bet[] = [
   },
   {
     id: "bet-6",
-    name: "Mixed Bag",
     legs: [
       { player: "Josh Jacobs", stat: "receiving_REC", goal: 3, overOrUnder: "over", league: "nfl" },
       { player: "Joe Flacco", stat: "passing_INT", goal: 1, overOrUnder: "under", league: "nfl" },
@@ -86,6 +89,40 @@ const leagueToSport: { [key: string]: string } = {
   nba: "basketball",
   nfl: "football",
 };
+
+const BETS_FILE_PATH = path.join(__dirname, "bets.json");
+
+// --- Load/Save Bets to File ---
+function loadBetsFromFile(): Bet[] {
+  try {
+    if (fs.existsSync(BETS_FILE_PATH)) {
+      const data = fs.readFileSync(BETS_FILE_PATH, "utf-8");
+      return JSON.parse(data);
+    }
+  } catch (err: any) {
+    console.error("Error loading bets from file:", err.message);
+  }
+  return [];
+}
+
+function saveBetsToFile(betsToSave: Bet[]): void {
+  try {
+    fs.writeFileSync(BETS_FILE_PATH, JSON.stringify(betsToSave, null, 2), "utf-8");
+    console.log("✅ Saved bets to file");
+  } catch (err: any) {
+    console.error("Error saving bets to file:", err.message);
+  }
+}
+
+// Load bets from file on startup (or use hardcoded bets if file doesn't exist)
+const loadedBets = loadBetsFromFile();
+if (loadedBets.length > 0) {
+  bets = loadedBets;
+  console.log(`📁 Loaded ${bets.length} bets from file`);
+} else {
+  console.log(`📝 Using hardcoded bets, will save to file on first update`);
+  saveBetsToFile(bets); // Save initial hardcoded bets to file
+}
 
 // --- Process NBA Boxscore ---
 function processNBABoxscore(box: NBABoxscore): Player[] {
@@ -267,6 +304,139 @@ app.get("/api/bets", (req: Request, res: Response) => {
   });
 
   res.json(enrichedBets);
+});
+
+// POST /api/bets - Create new bet
+app.post("/api/bets", (req: Request, res: Response) => {
+  try {
+    const { betAmount, payoutAmount, legs } = req.body;
+
+    // Validation
+    if (!legs || !Array.isArray(legs) || legs.length === 0) {
+      return res.status(400).json({ error: "At least one leg is required" });
+    }
+
+    // Validate each leg
+    for (const leg of legs) {
+      if (!leg.player || !leg.stat || leg.goal === undefined || !leg.overOrUnder || !leg.league) {
+        return res.status(400).json({ error: "Each leg must have player, stat, goal, overOrUnder, and league" });
+      }
+    }
+
+    // Generate new bet ID
+    const newBet: Bet = {
+      id: `bet-${Date.now()}`,
+      legs,
+      ...(betAmount !== undefined && { betAmount }),
+      ...(payoutAmount !== undefined && { payoutAmount }),
+    };
+
+    bets.push(newBet);
+    saveBetsToFile(bets);
+
+    res.status(201).json(newBet);
+  } catch (err: any) {
+    console.error("Error creating bet:", err.message);
+    res.status(500).json({ error: "Failed to create bet" });
+  }
+});
+
+// PUT /api/bets/:id - Update existing bet
+app.put("/api/bets/:id", (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { betAmount, payoutAmount, legs } = req.body;
+
+    // Find bet by ID
+    const betIndex = bets.findIndex((b) => b.id === id);
+    if (betIndex === -1) {
+      return res.status(404).json({ error: "Bet not found" });
+    }
+
+    // Validation
+    if (!legs || !Array.isArray(legs) || legs.length === 0) {
+      return res.status(400).json({ error: "At least one leg is required" });
+    }
+
+    // Validate each leg
+    for (const leg of legs) {
+      if (!leg.player || !leg.stat || leg.goal === undefined || !leg.overOrUnder || !leg.league) {
+        return res.status(400).json({ error: "Each leg must have player, stat, goal, overOrUnder, and league" });
+      }
+    }
+
+    // Update bet
+    bets[betIndex] = {
+      id,
+      legs,
+      ...(betAmount !== undefined && { betAmount }),
+      ...(payoutAmount !== undefined && { payoutAmount }),
+    };
+
+    saveBetsToFile(bets);
+
+    res.json(bets[betIndex]);
+  } catch (err: any) {
+    console.error("Error updating bet:", err.message);
+    res.status(500).json({ error: "Failed to update bet" });
+  }
+});
+
+// DELETE /api/bets/:id - Delete entire bet
+app.delete("/api/bets/:id", (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Find bet by ID
+    const betIndex = bets.findIndex((b) => b.id === id);
+    if (betIndex === -1) {
+      return res.status(404).json({ error: "Bet not found" });
+    }
+
+    // Remove bet from array
+    bets.splice(betIndex, 1);
+    saveBetsToFile(bets);
+
+    res.json({ success: true, message: "Bet deleted" });
+  } catch (err: any) {
+    console.error("Error deleting bet:", err.message);
+    res.status(500).json({ error: "Failed to delete bet" });
+  }
+});
+
+// DELETE /api/bets/:id/legs/:legIndex - Delete specific leg from bet
+app.delete("/api/bets/:id/legs/:legIndex", (req: Request, res: Response) => {
+  try {
+    const { id, legIndex } = req.params;
+    const index = parseInt(legIndex, 10);
+
+    // Find bet by ID
+    const betIndexInArray = bets.findIndex((b) => b.id === id);
+    if (betIndexInArray === -1) {
+      return res.status(404).json({ error: "Bet not found" });
+    }
+
+    const bet = bets[betIndexInArray];
+
+    // Validate leg index
+    if (isNaN(index) || index < 0 || index >= bet.legs.length) {
+      return res.status(400).json({ error: "Invalid leg index" });
+    }
+
+    // Don't allow deleting the last leg
+    if (bet.legs.length === 1) {
+      return res.status(400).json({ error: "Cannot delete the last leg. Delete the entire bet instead." });
+    }
+
+    // Remove leg
+    bet.legs.splice(index, 1);
+    saveBetsToFile(bets);
+
+    res.json(bet);
+  } catch (err: any) {
+    console.error("Error deleting leg:", err.message);
+    res.status(500).json({ error: "Failed to delete leg" });
+  }
 });
 
 // --- Start Server ---

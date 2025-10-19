@@ -4,10 +4,12 @@ import BetCard from "./BetCard";
 interface BetListProps {
   bets: EnrichedBet[];
   isLoading: boolean;
-  error: any;
+  error: string | null;
+  onEditBet: (bet: EnrichedBet) => void;
+  onDeleteBet: (bet: EnrichedBet) => void;
 }
 
-export default function BetList({ bets, isLoading, error }: BetListProps) {
+export default function BetList({ bets, isLoading, error, onEditBet, onDeleteBet }: BetListProps) {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-64">
@@ -48,7 +50,7 @@ export default function BetList({ bets, isLoading, error }: BetListProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {bets.map((bet) => (
-        <BetCard key={bet.id} bet={bet} />
+        <BetCard key={bet.id} bet={bet} onEdit={() => onEditBet(bet)} onDelete={() => onDeleteBet(bet)} />
       ))}
     </div>
   );

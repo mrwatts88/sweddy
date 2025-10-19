@@ -62,7 +62,6 @@ const NFL_STAT_BLOCKS: { [key: string]: number } = {
   punting_NO: 2,
   punting_YDS: 30,
   punting_TB: 1,
-  "punting_In 20": 1,
 };
 
 // NBA stat block sizes (no prefix)

@@ -1,0 +1,23 @@
+[
+  {
+    "id": "bet-1760888994894",
+    "legs": [
+      {
+        "player": "Jordan Love",
+        "stat": "passing_YDS",
+        "goal": 150,
+        "overOrUnder": "over",
+        "league": "nfl"
+      },
+      {
+        "player": "Myles Turner",
+        "stat": "PTS",
+        "goal": 30,
+        "overOrUnder": "under",
+        "league": "nba"
+      }
+    ],
+    "betAmount": 25,
+    "payoutAmount": 125
+  }
+]

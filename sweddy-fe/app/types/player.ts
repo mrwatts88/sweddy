@@ -27,7 +27,6 @@ export interface BetLeg {
 
 export interface Bet {
   id: string;
-  name: string;
   legs: BetLeg[];
   betAmount?: number;
   payoutAmount?: number;
@@ -42,7 +41,6 @@ export interface EnrichedBetLeg extends BetLeg {
 
 export interface EnrichedBet {
   id: string;
-  name: string;
   legs: EnrichedBetLeg[];
   betAmount?: number;
   payoutAmount?: number;

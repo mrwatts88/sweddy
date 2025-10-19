@@ -4,11 +4,19 @@ import { useBetData } from "./hooks/useBetData";
 import BetList from "./components/BetList";
 import { useEffect, useState } from "react";
 import { sortBets } from "./utils/betSorter";
+import BetModal from "./components/BetModal";
+import ConfirmDialog from "./components/ConfirmDialog";
+import { deleteBet } from "./api/bets";
+import { EnrichedBet } from "./types/player";
+import { mutate } from "swr";
 
 export default function Dashboard() {
   const { bets, isLoading, error } = useBetData();
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [autoSortEnabled, setAutoSortEnabled] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingBet, setEditingBet] = useState<EnrichedBet | null>(null);
+  const [deletingBet, setDeletingBet] = useState<EnrichedBet | null>(null);
 
   // Load autosort preference from localStorage
   useEffect(() => {
@@ -32,6 +40,38 @@ export default function Dashboard() {
   // Apply sorting if enabled
   const displayBets = autoSortEnabled ? sortBets(bets) : bets;
 
+  // Handlers
+  const handleCreateBet = () => {
+    setEditingBet(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEditBet = (bet: EnrichedBet) => {
+    setEditingBet(bet);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteBet = (bet: EnrichedBet) => {
+    setDeletingBet(bet);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingBet) return;
+
+    try {
+      await deleteBet(deletingBet.id);
+      mutate("http://localhost:3001/api/bets"); // Refresh bet data
+      setDeletingBet(null);
+    } catch (err) {
+      console.error("Failed to delete bet:", err);
+      alert("Failed to delete bet");
+    }
+  };
+
+  const handleModalSuccess = () => {
+    mutate("http://localhost:3001/api/bets"); // Refresh bet data
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       <div className="container mx-auto px-4 py-8">
@@ -42,6 +82,12 @@ export default function Dashboard() {
             </h1>
             <p className="text-xl text-slate-300 font-semibold tracking-wide flex-grow">Sweat your parlays in real-time</p>
             <div className="flex items-center gap-4 flex-shrink-0">
+              <button
+                onClick={handleCreateBet}
+                className="px-4 py-2 rounded-full backdrop-blur-sm border border-blue-400/30 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-200 hover:from-blue-500/30 hover:to-cyan-500/30 transition-all duration-200 font-bold text-sm"
+              >
+                + Create Bet
+              </button>
               <div className="relative group">
                 <button
                   onClick={() => setAutoSortEnabled(!autoSortEnabled)}
@@ -77,9 +123,35 @@ export default function Dashboard() {
         </header>
 
         <main>
-          <BetList bets={displayBets} isLoading={isLoading} error={error} />
+          <BetList
+            bets={displayBets}
+            isLoading={isLoading}
+            error={error}
+            onEditBet={handleEditBet}
+            onDeleteBet={handleDeleteBet}
+          />
         </main>
       </div>
+
+      {/* Bet Modal */}
+      <BetModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={handleModalSuccess}
+        editBet={editingBet}
+      />
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        isOpen={!!deletingBet}
+        title="Delete Bet"
+        message={`Are you sure you want to delete this ${deletingBet?.legs.length}-leg parlay? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeletingBet(null)}
+        isDestructive
+      />
     </div>
   );
 }
