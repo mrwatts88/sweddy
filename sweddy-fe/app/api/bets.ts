@@ -1,6 +1,6 @@
 import { Bet, BetLeg } from "../types/player";
 
-const API_BASE_URL = "http://localhost:3001/api";
+export const API_BASE_URL = "http://localhost:3001/api";
 
 export interface CreateBetRequest {
   legs: BetLeg[];
@@ -14,11 +14,24 @@ export interface UpdateBetRequest {
   payoutAmount?: number;
 }
 
+export async function requestRoomId(): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}/rooms`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to create room");
+  }
+
+  const data = await response.json();
+  return data.roomId as string;
+}
+
 /**
  * Create a new bet
  */
-export async function createBet(bet: CreateBetRequest): Promise<Bet> {
-  const response = await fetch(`${API_BASE_URL}/bets`, {
+export async function createBet(roomId: string, bet: CreateBetRequest): Promise<Bet> {
+  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/bets`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -37,8 +50,8 @@ export async function createBet(bet: CreateBetRequest): Promise<Bet> {
 /**
  * Update an existing bet
  */
-export async function updateBet(id: string, bet: UpdateBetRequest): Promise<Bet> {
-  const response = await fetch(`${API_BASE_URL}/bets/${id}`, {
+export async function updateBet(roomId: string, id: string, bet: UpdateBetRequest): Promise<Bet> {
+  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/bets/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -57,8 +70,8 @@ export async function updateBet(id: string, bet: UpdateBetRequest): Promise<Bet>
 /**
  * Delete a bet
  */
-export async function deleteBet(id: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/bets/${id}`, {
+export async function deleteBet(roomId: string, id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/bets/${id}`, {
     method: "DELETE",
   });
 
@@ -71,8 +84,8 @@ export async function deleteBet(id: string): Promise<void> {
 /**
  * Delete a specific leg from a bet
  */
-export async function deleteBetLeg(betId: string, legIndex: number): Promise<Bet> {
-  const response = await fetch(`${API_BASE_URL}/bets/${betId}/legs/${legIndex}`, {
+export async function deleteBetLeg(roomId: string, betId: string, legIndex: number): Promise<Bet> {
+  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/bets/${betId}/legs/${legIndex}`, {
     method: "DELETE",
   });
 

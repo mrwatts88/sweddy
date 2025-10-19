@@ -8,9 +8,10 @@ interface BetModalProps {
   onClose: () => void;
   onSuccess: () => void;
   editBet?: EnrichedBet | null;
+  roomId: string;
 }
 
-export default function BetModal({ isOpen, onClose, onSuccess, editBet }: BetModalProps) {
+export default function BetModal({ isOpen, onClose, onSuccess, editBet, roomId }: BetModalProps) {
   const [betAmount, setBetAmount] = useState<string>("");
   const [payoutAmount, setPayoutAmount] = useState<string>("");
   const [legs, setLegs] = useState<BetLeg[]>([]);
@@ -105,9 +106,9 @@ export default function BetModal({ isOpen, onClose, onSuccess, editBet }: BetMod
       };
 
       if (editBet) {
-        await updateBet(editBet.id, betData);
+        await updateBet(roomId, editBet.id, betData);
       } else {
-        await createBet(betData);
+        await createBet(roomId, betData);
       }
 
       onSuccess();

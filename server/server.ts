@@ -5,12 +5,13 @@ import cors from "cors";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { randomBytes } from "crypto";
 import { Bet, Player, PlayerCache, PlayerStats, ScoreboardResponse, SummaryResponse, NBABoxscore, NFLBoxscore } from "./types.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DATE = "20251012";
+const DATE = undefined; // "20251012";
 const LEAGUES = ["nfl", "nba"];
 const app = express();
 
@@ -27,63 +28,8 @@ app.use(express.json());
 
 const cache: PlayerCache = {}; // { playerNameLower: { team, stats, updatedAt } }
 
-// Bets structure: each bet is a parlay with multiple legs
-// NFL stats use format: "category_LABEL" (e.g., passing_YDS, rushing_YDS, receiving_REC)
-let bets: Bet[] = [
-  {
-    id: "bet-1",
-    betAmount: 10,
-    payoutAmount: 60,
-    legs: [
-      { player: "Giannis Antetokounmpo", stat: "REB", goal: 10, overOrUnder: "over", league: "nba" },
-      { player: "Myles Turner", stat: "BLK", goal: 1, overOrUnder: "over", league: "nba" },
-      { player: "Jordan Love", stat: "passing_YDS", goal: 250, overOrUnder: "over", league: "nfl" },
-    ],
-  },
-  {
-    id: "bet-2",
-    betAmount: 25,
-    payoutAmount: 150,
-    legs: [
-      { player: "Josh Jacobs", stat: "rushing_YDS", goal: 80, overOrUnder: "under", league: "nfl" },
-      { player: "Josh Jacobs", stat: "rushing_TD", goal: 1, overOrUnder: "over", league: "nfl" },
-      { player: "Chase Brown", stat: "rushing_YDS", goal: 50, overOrUnder: "over", league: "nfl" },
-    ],
-  },
-  {
-    id: "bet-3",
-    legs: [
-      { player: "Ja'Marr Chase", stat: "receiving_REC", goal: 11, overOrUnder: "over", league: "nfl" },
-      { player: "Ja'Marr Chase", stat: "receiving_YDS", goal: 90, overOrUnder: "over", league: "nfl" },
-    ],
-  },
-  {
-    id: "bet-4",
-    betAmount: 5,
-    legs: [
-      { player: "Rashan Gary", stat: "defensive_TOT", goal: 5, overOrUnder: "over", league: "nfl" },
-      { player: "Trey Hendrickson", stat: "defensive_SACKS", goal: 1, overOrUnder: "over", league: "nfl" },
-    ],
-  },
-  {
-    id: "bet-5",
-    payoutAmount: 100,
-    legs: [
-      { player: "Tucker Kraft", stat: "receiving_REC", goal: 4, overOrUnder: "under", league: "nfl" },
-      { player: "Chase Brown", stat: "receiving_YDS", goal: 30, overOrUnder: "under", league: "nfl" },
-      { player: "Andrei Iosivas", stat: "receiving_REC", goal: 3, overOrUnder: "under", league: "nfl" },
-    ],
-  },
-  {
-    id: "bet-6",
-    legs: [
-      { player: "Josh Jacobs", stat: "receiving_REC", goal: 3, overOrUnder: "over", league: "nfl" },
-      { player: "Joe Flacco", stat: "passing_INT", goal: 1, overOrUnder: "under", league: "nfl" },
-      { player: "Jordan Love", stat: "rushing_YDS", goal: 15, overOrUnder: "under", league: "nfl" },
-      { player: "Tee Higgins", stat: "receiving_YDS", goal: 70, overOrUnder: "over", league: "nfl" },
-    ],
-  },
-];
+type RoomBetMap = Record<string, Bet[]>;
+const ROOM_ID_LENGTH = 6;
 
 const leagueToSport: { [key: string]: string } = {
   nba: "basketball",
@@ -93,35 +39,63 @@ const leagueToSport: { [key: string]: string } = {
 const BETS_FILE_PATH = path.join(__dirname, "bets.json");
 
 // --- Load/Save Bets to File ---
-function loadBetsFromFile(): Bet[] {
+function loadRoomBetsFromFile(): RoomBetMap {
   try {
     if (fs.existsSync(BETS_FILE_PATH)) {
       const data = fs.readFileSync(BETS_FILE_PATH, "utf-8");
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+
+      // Support legacy array structure by discarding it; new rooms will be created on demand
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as RoomBetMap;
+      }
+
+      console.warn("⚠️ Detected legacy bets.json format. Starting with empty room map.");
     }
   } catch (err: any) {
     console.error("Error loading bets from file:", err.message);
   }
-  return [];
+  return {};
 }
 
-function saveBetsToFile(betsToSave: Bet[]): void {
+function saveRoomBetsToFile(betsToSave: RoomBetMap): void {
   try {
     fs.writeFileSync(BETS_FILE_PATH, JSON.stringify(betsToSave, null, 2), "utf-8");
-    console.log("✅ Saved bets to file");
   } catch (err: any) {
     console.error("Error saving bets to file:", err.message);
   }
 }
 
-// Load bets from file on startup (or use hardcoded bets if file doesn't exist)
-const loadedBets = loadBetsFromFile();
-if (loadedBets.length > 0) {
-  bets = loadedBets;
-  console.log(`📁 Loaded ${bets.length} bets from file`);
+// Load bets from file on startup
+let roomBets: RoomBetMap = loadRoomBetsFromFile();
+if (Object.keys(roomBets).length > 0) {
+  console.log(`📁 Loaded bets map for ${Object.keys(roomBets).length} room(s) from file`);
 } else {
-  console.log(`📝 Using hardcoded bets, will save to file on first update`);
-  saveBetsToFile(bets); // Save initial hardcoded bets to file
+  console.log("🆕 No existing rooms found. Bets file will be populated on room creation.");
+  saveRoomBetsToFile(roomBets);
+}
+
+function generateRoomId(): string {
+  return randomBytes(4).toString("hex").slice(0, ROOM_ID_LENGTH);
+}
+
+function assertRoomExists(roomId: string): Bet[] | null {
+  if (!roomBets[roomId]) {
+    return null;
+  }
+  return roomBets[roomId];
+}
+
+function createRoom(): string {
+  let roomId = generateRoomId();
+
+  while (roomBets[roomId]) {
+    roomId = generateRoomId();
+  }
+
+  roomBets[roomId] = [];
+  saveRoomBetsToFile(roomBets);
+  return roomId;
 }
 
 // --- Process NBA Boxscore ---
@@ -237,7 +211,6 @@ async function pollESPN(league: string = "nba", date: string | null = null): Pro
         continue;
       }
 
-      console.log(`✅ Fetching summary for game ${ev.shortName}`);
       const summaryUrl = `https://site.api.espn.com/apis/site/v2/sports/${leagueToSport[league]}/${league}/summary?event=${gameId}`;
       const summary = (await fetch(summaryUrl).then((r) => r.json())) as SummaryResponse;
       const box = summary.boxscore;
@@ -254,8 +227,7 @@ async function pollESPN(league: string = "nba", date: string | null = null): Pro
         const key = player.name.toLowerCase();
         cache[key] = player;
       }
-
-      console.log("✅ Updated Sweddy cache for", ev.shortName, "\n");
+      console.log("✅ Updated Sweddy cache for", league, ev.shortName);
     }
 
     console.log("Cache size:", Object.keys(cache).length);
@@ -271,14 +243,30 @@ for (const league of LEAGUES) {
 if (!DATE) {
   // Only run once if no date is provided, because providing a date is for dev purposes
   for (const league of LEAGUES) {
-    setInterval(() => pollESPN(league, DATE), 10000);
+    setInterval(() => pollESPN(league, DATE), 15000);
   }
 }
 
 // --- Express Routes ---
-app.get("/api/bets", (req: Request, res: Response) => {
-  // Enrich each bet with current stat values from cache
-  const enrichedBets = bets.map((bet) => {
+app.post("/api/rooms", (_req: Request, res: Response) => {
+  try {
+    const roomId = createRoom();
+    res.status(201).json({ roomId });
+  } catch (err: any) {
+    console.error("Error creating room:", err.message);
+    res.status(500).json({ error: "Failed to create room" });
+  }
+});
+
+app.get("/api/rooms/:roomId/bets", (req: Request, res: Response) => {
+  const { roomId } = req.params;
+  const betsForRoom = assertRoomExists(roomId);
+
+  if (!betsForRoom) {
+    return res.status(404).json({ error: "Room not found" });
+  }
+
+  const enrichedBets = betsForRoom.map((bet) => {
     const enrichedLegs = bet.legs.map((leg) => {
       const playerKey = leg.player.toLowerCase();
       const playerData = cache[playerKey];
@@ -306,10 +294,16 @@ app.get("/api/bets", (req: Request, res: Response) => {
   res.json(enrichedBets);
 });
 
-// POST /api/bets - Create new bet
-app.post("/api/bets", (req: Request, res: Response) => {
+// POST /api/rooms/:roomId/bets - Create new bet
+app.post("/api/rooms/:roomId/bets", (req: Request, res: Response) => {
   try {
+    const { roomId } = req.params;
     const { betAmount, payoutAmount, legs } = req.body;
+
+    const betsForRoom = assertRoomExists(roomId);
+    if (!betsForRoom) {
+      return res.status(404).json({ error: "Room not found" });
+    }
 
     // Validation
     if (!legs || !Array.isArray(legs) || legs.length === 0) {
@@ -331,8 +325,8 @@ app.post("/api/bets", (req: Request, res: Response) => {
       ...(payoutAmount !== undefined && { payoutAmount }),
     };
 
-    bets.push(newBet);
-    saveBetsToFile(bets);
+    betsForRoom.push(newBet);
+    saveRoomBetsToFile(roomBets);
 
     res.status(201).json(newBet);
   } catch (err: any) {
@@ -341,14 +335,18 @@ app.post("/api/bets", (req: Request, res: Response) => {
   }
 });
 
-// PUT /api/bets/:id - Update existing bet
-app.put("/api/bets/:id", (req: Request, res: Response) => {
+// PUT /api/rooms/:roomId/bets/:id - Update existing bet
+app.put("/api/rooms/:roomId/bets/:id", (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { roomId, id } = req.params;
     const { betAmount, payoutAmount, legs } = req.body;
 
-    // Find bet by ID
-    const betIndex = bets.findIndex((b) => b.id === id);
+    const betsForRoom = assertRoomExists(roomId);
+    if (!betsForRoom) {
+      return res.status(404).json({ error: "Room not found" });
+    }
+
+    const betIndex = betsForRoom.findIndex((b) => b.id === id);
     if (betIndex === -1) {
       return res.status(404).json({ error: "Bet not found" });
     }
@@ -365,37 +363,39 @@ app.put("/api/bets/:id", (req: Request, res: Response) => {
       }
     }
 
-    // Update bet
-    bets[betIndex] = {
+    betsForRoom[betIndex] = {
       id,
       legs,
       ...(betAmount !== undefined && { betAmount }),
       ...(payoutAmount !== undefined && { payoutAmount }),
     };
 
-    saveBetsToFile(bets);
+    saveRoomBetsToFile(roomBets);
 
-    res.json(bets[betIndex]);
+    res.json(betsForRoom[betIndex]);
   } catch (err: any) {
     console.error("Error updating bet:", err.message);
     res.status(500).json({ error: "Failed to update bet" });
   }
 });
 
-// DELETE /api/bets/:id - Delete entire bet
-app.delete("/api/bets/:id", (req: Request, res: Response) => {
+// DELETE /api/rooms/:roomId/bets/:id - Delete entire bet
+app.delete("/api/rooms/:roomId/bets/:id", (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { roomId, id } = req.params;
 
-    // Find bet by ID
-    const betIndex = bets.findIndex((b) => b.id === id);
+    const betsForRoom = assertRoomExists(roomId);
+    if (!betsForRoom) {
+      return res.status(404).json({ error: "Room not found" });
+    }
+
+    const betIndex = betsForRoom.findIndex((b) => b.id === id);
     if (betIndex === -1) {
       return res.status(404).json({ error: "Bet not found" });
     }
 
-    // Remove bet from array
-    bets.splice(betIndex, 1);
-    saveBetsToFile(bets);
+    betsForRoom.splice(betIndex, 1);
+    saveRoomBetsToFile(roomBets);
 
     res.json({ success: true, message: "Bet deleted" });
   } catch (err: any) {
@@ -404,33 +404,34 @@ app.delete("/api/bets/:id", (req: Request, res: Response) => {
   }
 });
 
-// DELETE /api/bets/:id/legs/:legIndex - Delete specific leg from bet
-app.delete("/api/bets/:id/legs/:legIndex", (req: Request, res: Response) => {
+// DELETE /api/rooms/:roomId/bets/:id/legs/:legIndex - Delete specific leg from bet
+app.delete("/api/rooms/:roomId/bets/:id/legs/:legIndex", (req: Request, res: Response) => {
   try {
-    const { id, legIndex } = req.params;
+    const { roomId, id, legIndex } = req.params;
     const index = parseInt(legIndex, 10);
 
-    // Find bet by ID
-    const betIndexInArray = bets.findIndex((b) => b.id === id);
+    const betsForRoom = assertRoomExists(roomId);
+    if (!betsForRoom) {
+      return res.status(404).json({ error: "Room not found" });
+    }
+
+    const betIndexInArray = betsForRoom.findIndex((b) => b.id === id);
     if (betIndexInArray === -1) {
       return res.status(404).json({ error: "Bet not found" });
     }
 
-    const bet = bets[betIndexInArray];
+    const bet = betsForRoom[betIndexInArray];
 
-    // Validate leg index
     if (isNaN(index) || index < 0 || index >= bet.legs.length) {
       return res.status(400).json({ error: "Invalid leg index" });
     }
 
-    // Don't allow deleting the last leg
     if (bet.legs.length === 1) {
       return res.status(400).json({ error: "Cannot delete the last leg. Delete the entire bet instead." });
     }
 
-    // Remove leg
     bet.legs.splice(index, 1);
-    saveBetsToFile(bets);
+    saveRoomBetsToFile(roomBets);
 
     res.json(bet);
   } catch (err: any) {

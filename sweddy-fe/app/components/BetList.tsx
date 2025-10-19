@@ -40,9 +40,9 @@ export default function BetList({ bets, isLoading, error, onEditBet, onDeleteBet
     return (
       <div className="flex justify-center items-center min-h-64">
         <div className="text-center bg-slate-800/40 backdrop-blur-sm border border-blue-400/30 rounded-xl p-8">
-          <div className="text-blue-300 text-4xl mb-3">🎲</div>
-          <p className="text-slate-200 font-semibold">No parlays configured yet</p>
-          <p className="text-slate-400 text-sm mt-2">Add some bets to the server to get started!</p>
+          <div className="text-blue-300 text-4xl mb-3">🏈🏀</div>
+          <p className="text-slate-200 font-semibold">No bets configured yet</p>
+          <p className="text-slate-400 text-sm mt-2">Add some bets to get started!</p>
         </div>
       </div>
     );
