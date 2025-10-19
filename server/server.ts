@@ -18,7 +18,7 @@ const app = express();
 // Enable CORS for all routes
 app.use(
   cors({
-    origin: ["http://localhost:3000"],
+    origin: "*",
     credentials: true,
   })
 );
@@ -36,7 +36,20 @@ const leagueToSport: { [key: string]: string } = {
   nfl: "football",
 };
 
-const BETS_FILE_PATH = path.join(__dirname, "bets.json");
+const BETS_FILE_PATH = (() => {
+  const envPath = process.env.BETS_FILE_PATH;
+  if (envPath && envPath.trim().length > 0) {
+    return path.resolve(envPath);
+  }
+  return path.join(__dirname, "bets.json");
+})();
+
+function ensureDirectoryForFile(filePath: string) {
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
 
 // --- Load/Save Bets to File ---
 function loadRoomBetsFromFile(): RoomBetMap {
@@ -60,6 +73,7 @@ function loadRoomBetsFromFile(): RoomBetMap {
 
 function saveRoomBetsToFile(betsToSave: RoomBetMap): void {
   try {
+    ensureDirectoryForFile(BETS_FILE_PATH);
     fs.writeFileSync(BETS_FILE_PATH, JSON.stringify(betsToSave, null, 2), "utf-8");
   } catch (err: any) {
     console.error("Error saving bets to file:", err.message);
@@ -441,4 +455,8 @@ app.delete("/api/rooms/:roomId/bets/:id/legs/:legIndex", (req: Request, res: Res
 });
 
 // --- Start Server ---
-app.listen(3001, () => console.log("Sweddy backend live on http://localhost:3001"));
+app.get("/health", (_req: Request, res: Response) => {
+  res.json({ status: "ok", uptime: process.uptime() });
+});
+
+app.listen(process.env.PORT || 3001, () => console.log(`Sweddy backend live on http://localhost:${process.env.PORT || 3001}`));
