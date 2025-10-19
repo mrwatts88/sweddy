@@ -1,0 +1,75 @@
+{
+  "passing": {
+    "C/ATT": "Completions/Attempts",
+    "YDS": "Yards",
+    "AVG": "Yards Per Pass Attempt",
+    "TD": "Touchdowns",
+    "INT": "Interceptions",
+    "SACKS": "Sacks",
+    "QBR": "Adjusted QBR",
+    "RTG": "Passer Rating"
+  },
+  "rushing": {
+    "CAR": "Rushing Attempts",
+    "YDS": "Yards",
+    "AVG": "Yards Per Rushing Attempt",
+    "TD": "Touchdowns",
+    "LONG": "Longest Run"
+  },
+  "receiving": {
+    "REC": "Receptions",
+    "YDS": "Yards",
+    "AVG": "Yards Per Reception",
+    "TD": "Touchdowns",
+    "LONG": "Longest Reception",
+    "TGTS": "Receiving Targets"
+  },
+  "fumbles": {
+    "FUM": "Fumbles",
+    "LOST": "Fumbles Lost",
+    "REC": "Fumbles Recovered"
+  },
+  "defensive": {
+    "TOT": "Tackles",
+    "SOLO": "Solo Tackles",
+    "SACKS": "Sacks",
+    "TFL": "Tackles For Loss",
+    "PD": "Passes Defended",
+    "QB HTS": "Quarterback Hits",
+    "TD": "Touchdowns"
+  },
+  "interceptions": {
+    "INT": "Interceptions",
+    "YDS": "Yards",
+    "TD": "Touchdowns"
+  },
+  "kickReturns": {
+    "NO": "Kick Returns",
+    "YDS": "Yards",
+    "AVG": "Yards Per Kick Return",
+    "LONG": "Longest Kick Return",
+    "TD": "Touchdowns"
+  },
+  "puntReturns": {
+    "NO": "Punt Returns",
+    "YDS": "Yards",
+    "AVG": "Yards Per Punt Return",
+    "LONG": "Longest Punt Return",
+    "TD": "Touchdowns"
+  },
+  "kicking": {
+    "FG": "Field Goals Made/Attempts",
+    "PCT": "Field Goal Percentage",
+    "LONG": "Longest Field Goal Made",
+    "XP": "Extra Points Made/Attempts",
+    "PTS": "Kicking Points"
+  },
+  "punting": {
+    "NO": "Punts",
+    "YDS": "Yards",
+    "AVG": "Average Punt Yards",
+    "TB": "Touchbacks",
+    "In 20": "Punts Inside 20",
+    "LONG": "Longest Punt"
+  }
+}
