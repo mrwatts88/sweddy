@@ -28,11 +28,13 @@ Sweddy is a full-stack TypeScript application that tracks player statistics from
 Sweddy fetches live game data from ESPN's public APIs, caches player statistics, and enriches user-defined bets with current stat values. The frontend displays each bet as a card with progress bars showing how close each leg is to hitting.
 
 **Core Features:**
+
 - Real-time stat tracking from ESPN APIs (NBA & NFL)
 - Create/edit/delete bets through a modal UI
-- Auto-sort bets by completion probability using normalized stat units
-- Visual indicators for winning/losing bets
-- Pulse animations when stats update
+- Smart sweat sorting with cycling sort modes (Sweat/Bet/Payout/None)
+- Intelligent urgency indicators (🔥 fire for over excitement, 🚨 alarm for under danger)
+- Psychologically-aware sorting that prioritizes realistic winning potential
+- Visual status system with color-coded borders and pulsing animations
 - Cross-league parlays (mix NBA and NFL in same bet)
 - Persistent bet storage (JSON file)
 
@@ -93,6 +95,7 @@ Sweddy fetches live game data from ESPN's public APIs, caches player statistics,
 ## Tech Stack
 
 ### Backend
+
 - **Node.js** with **Express** (REST API)
 - **TypeScript** (strict typing)
 - **node-fetch** (ESPN API calls)
@@ -100,12 +103,14 @@ Sweddy fetches live game data from ESPN's public APIs, caches player statistics,
 - **tsx** (TypeScript execution, hot reload)
 
 ### Frontend
+
 - **Next.js 14** (App Router, React Server Components)
 - **TypeScript**
 - **Tailwind CSS** (styling)
 - **SWR** (data fetching with polling)
 
 ### Data Sources
+
 - **ESPN API** (public, no auth required)
   - Scoreboard: `https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/scoreboard`
   - Summary: `https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/summary?event={eventId}`
@@ -169,28 +174,27 @@ sweddy/
 // server/server.ts
 async function pollESPN(league: "nba" | "nfl", date: string | null) {
   // 1. Fetch scoreboard
-  const scoreboard = await fetch(`https://site.api.espn.com/.../scoreboard`)
-  const events = scoreboard.events // List of games
+  const scoreboard = await fetch(`https://site.api.espn.com/.../scoreboard`);
+  const events = scoreboard.events; // List of games
 
   // 2. For each game, fetch detailed summary (includes boxscore)
   for (const event of events) {
-    const summary = await fetch(`https://site.api.espn.com/.../summary?event=${event.id}`)
-    const boxscore = summary.boxscore
+    const summary = await fetch(`https://site.api.espn.com/.../summary?event=${event.id}`);
+    const boxscore = summary.boxscore;
 
     // 3. Process boxscore → extract player stats
-    const players = league === "nba"
-      ? processNBABoxscore(boxscore)
-      : processNFLBoxscore(boxscore)
+    const players = league === "nba" ? processNBABoxscore(boxscore) : processNFLBoxscore(boxscore);
 
     // 4. Update cache
     for (const player of players) {
-      cache[player.name.toLowerCase()] = player
+      cache[player.name.toLowerCase()] = player;
     }
   }
 }
 ```
 
 **Key Differences:**
+
 - **NBA:** Flat stat structure (`stats: ["15", "8", "3"]`, `names: ["PTS", "REB", "AST"]`)
 - **NFL:** Categorized stats (`passing: {...}, rushing: {...}`)
   - NFL stats are namespaced: `passing_YDS`, `rushing_YDS`, `receiving_REC`
@@ -199,14 +203,14 @@ async function pollESPN(league: "nba" | "nfl", date: string | null) {
 
 ```typescript
 // Frontend makes request
-GET /api/bets
+GET / api / bets;
 
 // Backend enriches bets with cache data
 app.get("/api/bets", (req, res) => {
-  const enrichedBets = bets.map(bet => {
-    const enrichedLegs = bet.legs.map(leg => {
-      const playerData = cache[leg.player.toLowerCase()]
-      const current = parseFloat(playerData?.stats[leg.stat]) || 0
+  const enrichedBets = bets.map((bet) => {
+    const enrichedLegs = bet.legs.map((leg) => {
+      const playerData = cache[leg.player.toLowerCase()];
+      const current = parseFloat(playerData?.stats[leg.stat]) || 0;
 
       return {
         ...leg,
@@ -214,14 +218,14 @@ app.get("/api/bets", (req, res) => {
         playerActive: !!playerData,
         headshot: playerData?.headshot,
         teamLogo: playerData?.team?.logo,
-      }
-    })
+      };
+    });
 
-    return { ...bet, legs: enrichedLegs }
-  })
+    return { ...bet, legs: enrichedLegs };
+  });
 
-  res.json(enrichedBets)
-})
+  res.json(enrichedBets);
+});
 ```
 
 ### 3. Frontend Display
@@ -247,18 +251,18 @@ const displayBets = autoSortEnabled ? sortBets(bets) : bets
 
 ```typescript
 interface Bet {
-  id: string                    // "bet-1" or "bet-{timestamp}"
-  legs: BetLeg[]                // Array of player stat bets
-  betAmount?: number            // Optional wager amount
-  payoutAmount?: number         // Optional payout amount
+  id: string; // "bet-1" or "bet-{timestamp}"
+  legs: BetLeg[]; // Array of player stat bets
+  betAmount?: number; // Optional wager amount
+  payoutAmount?: number; // Optional payout amount
 }
 
 interface BetLeg {
-  player: string                // "Patrick Mahomes"
-  stat: string                  // "passing_YDS" or "PTS"
-  goal: number                  // Threshold (e.g., 250)
-  overOrUnder: "over" | "under" // Bet direction
-  league: "nfl" | "nba"         // Each leg can be different league
+  player: string; // "Patrick Mahomes"
+  stat: string; // "passing_YDS" or "PTS"
+  goal: number; // Threshold (e.g., 250)
+  overOrUnder: "over" | "under"; // Bet direction
+  league: "nfl" | "nba"; // Each leg can be different league
 }
 ```
 
@@ -267,12 +271,14 @@ interface BetLeg {
 ### Stat Namespacing (NFL)
 
 NFL stats use format `{category}_{STAT}`:
+
 - `passing_YDS`, `passing_TD`, `passing_INT`
 - `rushing_YDS`, `rushing_TD`
 - `receiving_REC`, `receiving_YDS`, `receiving_TD`
 - `defensive_TOT`, `defensive_SACKS`
 
 NBA stats are flat:
+
 - `PTS`, `REB`, `AST`, `STL`, `BLK`, `3PT`
 
 ### Stat Block Sizes (Normalization)
@@ -282,32 +288,43 @@ For auto-sorting, stats are normalized using "block sizes" - the typical difficu
 ```typescript
 // sweddy-fe/app/utils/statBlocks.ts
 const NFL_STAT_BLOCKS = {
-  passing_YDS: 25,    // 25 yards = 1 block
-  passing_TD: 1,      // 1 TD = 1 block
+  passing_YDS: 25, // 25 yards = 1 block
+  passing_TD: 1, // 1 TD = 1 block
   rushing_YDS: 10,
   receiving_REC: 1,
   // ...
-}
+};
 
 const NBA_STAT_BLOCKS = {
-  PTS: 5,             // 5 points = 1 block
+  PTS: 5, // 5 points = 1 block
   REB: 2,
   AST: 2,
   STL: 1,
   BLK: 1,
   // ...
+};
+```
+
+**Smart Sweat Sorting Algorithm:**
+
+```typescript
+// Calculate separate distances
+const overWinningDistance = sum of blocks needed for all over legs
+const underLosingDistance = min blocks to safety for any under leg
+
+// Smart sorting logic (prioritizes realistic winning potential)
+const hasOverPotential = overWinningDistance < 5
+
+if (overWinningDistance <= underLosingDistance) {
+  sortDistance = overWinningDistance  // Over is closer
+} else if (hasOverPotential) {
+  sortDistance = underLosingDistance  // Under danger matters (bet has potential)
+} else {
+  sortDistance = overWinningDistance  // Ignore under danger (bet unrealistic)
 }
 ```
 
-**Auto-Sort Formula:**
-```typescript
-// For each leg
-const blockSize = getStatBlockSize(leg.stat)
-const distance = (leg.goal - leg.current) / blockSize
-
-// Total bet distance = sum of all leg distances
-// Lower distance = closer to completion = sorted higher
-```
+**Psychology:** Only worry about under legs failing if the bet has realistic winning potential. If over legs need 10+ blocks, who cares if an under is close to failing?
 
 ### Bet States
 
@@ -320,19 +337,32 @@ const distance = (leg.goal - leg.current) / blockSize
 ### Visual Indicators
 
 **Border Colors:**
-- Blue (default) - Active bet
+
+- Blue (default) - Active bet, no urgency
+- Orange - Sweddy bet (🔥 over legs close to hitting)
+- Red - Caution bet (🚨 under legs close to failing)
 - Green - Guaranteed win (all over bets hit)
-- Red - Guaranteed loss (under bet went over)
+- Grey - Guaranteed loss (under bet went over)
+
+**Status Icons:**
+
+- 🔥 (orange, pulsing) - Over bet close to hitting (< 3 blocks)
+- 🚨 (red, pulsing) - Under bet close to failing (< 3 blocks)
+- ✓ (green, pulsing) - Guaranteed win
+- ✗ (grey, static) - Guaranteed loss
 
 **Progress Bar Colors:**
+
 - Blue - Tracking (not yet hit)
 - Green - Over bet hit goal
 - Red - Under bet exceeded goal (lost)
 
 **Animations:**
+
 - Pulse effect (1200ms) when stat value changes
 - Badge lights up with `bg-blue-400/40`
 - Progress bar brightens with `brightness-125`
+- Status icons pulse to draw attention
 
 ---
 
@@ -341,32 +371,37 @@ const distance = (leg.goal - leg.current) / blockSize
 ### Main File: `server/server.ts`
 
 **Key Variables:**
+
 ```typescript
-const DATE = "20251012"               // For dev: lock to specific date
-const LEAGUES = ["nfl", "nba"]        // Leagues to poll
-let bets: Bet[] = []                  // Loaded from bets.json
-const cache: PlayerCache = {}         // In-memory player stats
+const DATE = "20251012"; // For dev: lock to specific date
+const LEAGUES = ["nfl", "nba"]; // Leagues to poll
+let bets: Bet[] = []; // Loaded from bets.json
+const cache: PlayerCache = {}; // In-memory player stats
 ```
 
 **Core Functions:**
 
 1. **`processNBABoxscore(box: NBABoxscore): Player[]`**
+
    - Extracts player stats from NBA boxscore
    - Maps stat names to values using parallel arrays
    - Returns array of Player objects
 
 2. **`processNFLBoxscore(box: NFLBoxscore): Player[]`**
+
    - Processes categorized NFL stats
    - Namespaces stats with category prefix
    - Handles multiple stat categories per player
 
 3. **`pollESPN(league: string, date: string | null): Promise<void>`**
+
    - Fetches scoreboard → games
    - Fetches summary/boxscore for each game
    - Processes stats → updates cache
    - Runs every 10 seconds (configurable)
 
 4. **`loadBetsFromFile(): Bet[]`**
+
    - Reads `bets.json`
    - Returns parsed bet array
 
@@ -377,6 +412,7 @@ const cache: PlayerCache = {}         // In-memory player stats
 ### ESPN API Structure
 
 **Scoreboard Response:**
+
 ```typescript
 {
   events: [
@@ -385,12 +421,13 @@ const cache: PlayerCache = {}         // In-memory player stats
       shortName: "MIL @ IND",
       status: { type: { state: "in" } }, // pre, in, post
       // ...
-    }
-  ]
+    },
+  ];
 }
 ```
 
 **Summary Response (includes boxscore):**
+
 ```typescript
 {
   boxscore: {
@@ -399,18 +436,18 @@ const cache: PlayerCache = {}         // In-memory player stats
         team: { id, abbreviation, logo },
         statistics: [
           {
-            name: "passing",  // NFL category
+            name: "passing", // NFL category
             labels: ["C/ATT", "YDS", "TD"],
             athletes: [
               {
                 athlete: { id, displayName, headshot, position },
-                stats: ["20/30", "250", "2"]
-              }
-            ]
-          }
-        ]
-      }
-    ]
+                stats: ["20/30", "250", "2"],
+              },
+            ],
+          },
+        ],
+      },
+    ];
   }
 }
 ```
@@ -443,32 +480,53 @@ const cache: PlayerCache = {}         // In-memory player stats
 ### Main Page: `app/page.tsx`
 
 **State Management:**
+
 ```typescript
-const [autoSortEnabled, setAutoSortEnabled] = useState(true)
-const [isModalOpen, setIsModalOpen] = useState(false)
-const [editingBet, setEditingBet] = useState<EnrichedBet | null>(null)
-const [deletingBet, setDeletingBet] = useState<EnrichedBet | null>(null)
+const [sortMode, setSortMode] = useState<SortMode>("completion");
+const [isModalOpen, setIsModalOpen] = useState(false);
+const [editingBet, setEditingBet] = useState<EnrichedBet | null>(null);
+const [deletingBet, setDeletingBet] = useState<EnrichedBet | null>(null);
 ```
 
 **Data Fetching:**
+
 ```typescript
-const { bets, isLoading, error } = useBetData() // SWR with 15s polling
+const { bets, isLoading, error } = useBetData(); // SWR with 15s polling
 ```
 
-**Auto-Sort:**
+**Cycling Sort System:**
+
 ```typescript
-const displayBets = autoSortEnabled ? sortBets(bets) : bets
+type SortMode = "completion" | "bet" | "payout" | "none";
+
+const displayBets = (() => {
+  switch (sortMode) {
+    case "completion":
+      return sortBets(bets); // Smart sweat sorting
+    case "bet":
+      return sortByBetAmount(bets); // Bet amount (high to low)
+    case "payout":
+      return sortByPayoutAmount(bets); // Payout amount (high to low)
+    case "none":
+      return bets; // Original order
+  }
+})();
 ```
+
+**Cycling Sort Pill:** Click to cycle through: "Sort: Sweat" → "Sort: Bet" → "Sort: Payout" → "Sort: None" → repeat
 
 ### Components
 
 #### `BetCard.tsx`
+
 Displays a single bet with:
+
 - Header: "X Leg Parlay", bet/payout amounts, edit/delete buttons
 - Status indicators: ✓ (win), ✗ (loss)
 - Legs: Player name, league/team/player logos, stat progress bar
 
 **Props:**
+
 ```typescript
 {
   bet: EnrichedBet,
@@ -478,13 +536,16 @@ Displays a single bet with:
 ```
 
 #### `BetModal.tsx`
+
 Modal for creating/editing bets:
+
 - Optional bet/payout amount fields
 - Dynamic leg management (add/remove)
 - League dropdown → filters stat dropdown
 - Form validation (min 1 leg, required fields)
 
 **Props:**
+
 ```typescript
 {
   isOpen: boolean,
@@ -495,12 +556,15 @@ Modal for creating/editing bets:
 ```
 
 #### `StatProgressBar.tsx`
+
 Animated progress bar:
+
 - Shows current/goal values
 - Color-coded by over/under logic
 - Pulse animation on stat changes (using `useRef` to track previous value)
 
 **Props:**
+
 ```typescript
 {
   label: string,
@@ -513,30 +577,50 @@ Animated progress bar:
 ### Utilities
 
 #### `statBlocks.ts`
+
 Defines normalization factors for all stats:
+
 ```typescript
-export function getStatBlockSize(stat: string): number
-export { NFL_STAT_BLOCKS, NBA_STAT_BLOCKS, STAT_BLOCKS }
+export function getStatBlockSize(stat: string): number;
+export { NFL_STAT_BLOCKS, NBA_STAT_BLOCKS, STAT_BLOCKS };
 ```
 
 #### `betSorter.ts`
-Auto-sort logic:
+
+Smart sweat sorting logic:
+
 ```typescript
-export function calculateBetDistance(bet: EnrichedBet): number
-export function isBetGuaranteedWin(bet: EnrichedBet): boolean
-export function isBetGuaranteedLoss(bet: EnrichedBet): boolean
-export function sortBets(bets: EnrichedBet[]): EnrichedBet[]
+export function calculateSweatInfo(bet: EnrichedBet): SweatInfo;
+export function calculateBetDistance(bet: EnrichedBet): number; // Legacy wrapper
+export function sortBets(bets: EnrichedBet[]): EnrichedBet[];
+export function sortByBetAmount(bets: EnrichedBet[]): EnrichedBet[];
+export function sortByPayoutAmount(bets: EnrichedBet[]): EnrichedBet[];
+export function isBetGuaranteedWin(bet: EnrichedBet): boolean;
+export function isBetGuaranteedLoss(bet: EnrichedBet): boolean;
 ```
 
-Sort order: `[active (by distance), wins, losses]`
+**SweatInfo Interface:**
+
+```typescript
+interface SweatInfo {
+  overDistance: number; // Total blocks needed for over legs
+  underDistance: number; // Min blocks to safety for under legs
+  sortDistance: number; // Smart distance for sorting
+  sortType: "over" | "under" | "none"; // Which type drives urgency
+}
+```
+
+Sort order: `[active (by smart distance), wins, losses]`
 
 #### `statHelpers.ts`
+
 Stat dropdown helpers:
+
 ```typescript
-export function getNFLStats(): string[]
-export function getNBAStats(): string[]
-export function formatStatLabel(stat: string): string
-export function getStatsForLeague(league: "nfl" | "nba"): string[]
+export function getNFLStats(): string[];
+export function getNBAStats(): string[];
+export function formatStatLabel(stat: string): string;
+export function getStatsForLeague(league: "nfl" | "nba"): string[];
 ```
 
 ---
@@ -544,9 +628,11 @@ export function getStatsForLeague(league: "nfl" | "nba"): string[]
 ## API Reference
 
 ### `GET /api/bets`
+
 Returns all bets with enriched leg data (current stats, headshots, team logos).
 
 **Response:**
+
 ```json
 [
   {
@@ -571,9 +657,11 @@ Returns all bets with enriched leg data (current stats, headshots, team logos).
 ```
 
 ### `POST /api/bets`
+
 Create a new bet.
 
 **Request Body:**
+
 ```json
 {
   "legs": [
@@ -591,12 +679,14 @@ Create a new bet.
 ```
 
 **Validation:**
+
 - At least 1 leg required
 - Each leg must have all required fields
 
 **Response:** Created bet object (201)
 
 ### `PUT /api/bets/:id`
+
 Update an existing bet.
 
 **Request Body:** Same as POST
@@ -604,14 +694,17 @@ Update an existing bet.
 **Response:** Updated bet object (200)
 
 ### `DELETE /api/bets/:id`
+
 Delete an entire bet.
 
 **Response:** `{ "success": true, "message": "Bet deleted" }` (200)
 
 ### `DELETE /api/bets/:id/legs/:legIndex`
+
 Delete a specific leg from a bet.
 
 **Validation:**
+
 - Cannot delete last leg (must delete entire bet instead)
 
 **Response:** Updated bet object (200)
@@ -621,6 +714,7 @@ Delete a specific leg from a bet.
 ## Running the Application
 
 ### Prerequisites
+
 - Node.js 18+
 - npm
 
@@ -637,6 +731,7 @@ npm start          # Production mode
 Server runs on: `http://localhost:3001`
 
 **Environment Variables:**
+
 - `DATE` - Hardcoded in `server.ts` (set to specific date for dev, comment out for live games)
 - `LEAGUES` - Array of leagues to poll (default: `["nfl", "nba"]`)
 
@@ -651,6 +746,7 @@ npm run dev
 Frontend runs on: `http://localhost:3000`
 
 **Configuration:**
+
 - API base URL is hardcoded: `http://localhost:3001/api`
 
 ### Full Stack
@@ -672,46 +768,51 @@ Open browser to: `http://localhost:3000`
 ### Change Polling Date (Dev Mode)
 
 In `server/server.ts`:
+
 ```typescript
-const DATE = "20251012"  // Lock to this date
+const DATE = "20251012"; // Lock to this date
 // const DATE = null     // Use today's date (live games)
 ```
 
 ### Change Polling Interval
 
 In `server/server.ts`:
+
 ```typescript
-setInterval(() => pollESPN(LEAGUE, DATE), 10000) // 10 seconds
+setInterval(() => pollESPN(LEAGUE, DATE), 10000); // 10 seconds
 ```
 
 In `sweddy-fe/app/hooks/useBetData.ts`:
+
 ```typescript
 const { data, error, isLoading } = useSWR<EnrichedBet[]>(
   "http://localhost:3001/api/bets",
   fetcher,
   { refreshInterval: 15000 } // 15 seconds
-)
+);
 ```
 
 ### Add New Stats
 
 1. Add to `server/nfl-stats-map.json` or identify NBA stat key
 2. Add block size to `sweddy-fe/app/utils/statBlocks.ts`:
+
 ```typescript
 const NFL_STAT_BLOCKS = {
   // ...
-  newCategory_NEWSTAT: 5,  // NFL
-}
+  newCategory_NEWSTAT: 5, // NFL
+};
 
 const NBA_STAT_BLOCKS = {
   // ...
-  NEWSTAT: 3,              // NBA
-}
+  NEWSTAT: 3, // NBA
+};
 ```
 
 ### Customize Colors
 
 All colors are in Tailwind classes. Key locations:
+
 - **Bet card borders:** `BetCard.tsx` - `borderColor` variable
 - **Progress bars:** `BetCard.tsx` - `getBarColor()` function
 - **Header gradient:** `page.tsx` - SWEDDY title
@@ -724,12 +825,14 @@ All colors are in Tailwind classes. Key locations:
 ### Adding a New Feature
 
 1. **Backend changes** (if needed):
+
    - Update types in `server/types.ts`
    - Add/modify API endpoint in `server/server.ts`
    - Update `bets.json` structure if needed
    - Test with `npm run type-check`
 
 2. **Frontend changes**:
+
    - Update types in `sweddy-fe/app/types/player.ts`
    - Create/modify components in `app/components/`
    - Update API client in `app/api/bets.ts`
@@ -744,20 +847,24 @@ All colors are in Tailwind classes. Key locations:
 ### Common Tasks
 
 **Add new stat to dropdown:**
+
 1. Ensure stat appears in ESPN API response
 2. Add to appropriate stat block in `statBlocks.ts`
 3. It will automatically appear in dropdowns
 
 **Change bet display logic:**
+
 1. Modify `BetCard.tsx` - `allLegsHitting` and `betLost` logic
 2. Update `getBarColor()` for progress bar colors
 3. Update border color calculation
 
 **Modify auto-sort algorithm:**
+
 1. Edit `betSorter.ts` - `calculateBetDistance()` function
 2. Adjust stat block sizes in `statBlocks.ts`
 
 **Add new league:**
+
 1. Add to `leagueToSport` mapping in `server/server.ts`
 2. Create `process{League}Boxscore()` function
 3. Add league option to frontend dropdown
@@ -766,18 +873,21 @@ All colors are in Tailwind classes. Key locations:
 ### Debugging
 
 **Backend issues:**
+
 - Check server logs for API errors
 - Verify ESPN API responses: `curl https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard`
 - Inspect cache: `console.log(cache)`
 - Check `bets.json` for persistence
 
 **Frontend issues:**
+
 - Check browser console for errors
 - Inspect Network tab for API calls
 - Verify SWR is polling: check `/api/bets` calls every 15s
 - Check component props with React DevTools
 
 **Common issues:**
+
 - **No stats showing:** Check if games are live (`status.type.state === "in"`)
 - **Player not found:** Check exact spelling in bet vs ESPN API
 - **Stats not updating:** Verify polling interval, check backend logs
@@ -790,24 +900,29 @@ All colors are in Tailwind classes. Key locations:
 ### Important Patterns
 
 1. **Player names are case-insensitive**
+
    - Cache uses lowercase keys: `cache[player.name.toLowerCase()]`
    - Bet lookups: `cache[leg.player.toLowerCase()]`
 
 2. **NFL stat namespacing**
+
    - Always use format: `{category}_{STAT}`
    - Example: `passing_YDS` not `YDS`
    - This prevents collisions (rushing vs receiving yards)
 
 3. **Under bet logic**
+
    - Under bets are LOST when `current >= goal` (not `>`)
    - Under bets can never be "safe" until game ends
    - A bet with ANY under legs cannot be a guaranteed win
 
 4. **Bet enrichment happens server-side**
+
    - Backend adds `current`, `playerActive`, `headshot`, `teamLogo` to each leg
    - Frontend receives `EnrichedBet[]` not `Bet[]`
 
 5. **SWR mutation for data refresh**
+
    - After create/edit/delete: `mutate("http://localhost:3001/api/bets")`
    - This triggers immediate refetch
 
@@ -818,16 +933,19 @@ All colors are in Tailwind classes. Key locations:
 ### Type Definitions
 
 All TypeScript interfaces are documented in:
+
 - Backend: `server/types.ts`
 - Frontend: `sweddy-fe/app/types/player.ts`
 
 Key difference:
+
 - `Bet` vs `EnrichedBet`
 - `BetLeg` vs `EnrichedBetLeg` (has `current`, `playerActive`, etc.)
 
 ### Testing Tips
 
 1. **Create test bet:**
+
 ```bash
 curl -X POST http://localhost:3001/api/bets \
   -H "Content-Type: application/json" \
@@ -843,14 +961,15 @@ curl -X POST http://localhost:3001/api/bets \
 ```
 
 2. **Check cache:**
+
 ```typescript
 // Add to server.ts temporarily
-console.log('Cache:', Object.keys(cache))
-console.log('Giannis stats:', cache['giannis antetokounmpo'])
+console.log("Cache:", Object.keys(cache));
+console.log("Giannis stats:", cache["giannis antetokounmpo"]);
 ```
 
 3. **Force stat update:**
-Manually edit `bets.json` goals to test different bet states
+   Manually edit `bets.json` goals to test different bet states
 
 ### Future Enhancement Ideas
 
