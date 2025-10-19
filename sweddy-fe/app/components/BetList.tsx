@@ -1,5 +1,6 @@
 import { EnrichedBet } from "../types/player";
 import BetCard from "./BetCard";
+import { calculateSweatInfo } from "../utils/betSorter";
 
 interface BetListProps {
   bets: EnrichedBet[];
@@ -47,11 +48,33 @@ export default function BetList({ bets, isLoading, error, onEditBet, onDeleteBet
     );
   }
 
+  // Dynamic grid layout based on bet count
+  const getGridClass = () => {
+    if (bets.length === 1) {
+      return "flex justify-center";
+    } else if (bets.length === 2) {
+      return "grid grid-cols-1 md:grid-cols-2 gap-6";
+    } else {
+      return "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6";
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {bets.map((bet) => (
-        <BetCard key={bet.id} bet={bet} onEdit={() => onEditBet(bet)} onDelete={() => onDeleteBet(bet)} />
-      ))}
+    <div className={getGridClass()}>
+      {bets.map((bet) => {
+        const sweatInfo = calculateSweatInfo(bet);
+        return (
+          <BetCard
+            key={bet.id}
+            bet={bet}
+            onEdit={() => onEditBet(bet)}
+            onDelete={() => onDeleteBet(bet)}
+            className={bets.length === 1 ? "max-w-2xl w-full" : ""}
+            sweatDistance={sweatInfo.sortDistance}
+            sweatType={sweatInfo.sortType}
+          />
+        );
+      })}
     </div>
   );
 }

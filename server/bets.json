@@ -1,23 +1,164 @@
 [
   {
-    "id": "bet-1760888994894",
+    "id": "bet-1",
+    "betAmount": 10,
+    "payoutAmount": 60,
     "legs": [
+      {
+        "player": "Giannis Antetokounmpo",
+        "stat": "REB",
+        "goal": 10,
+        "overOrUnder": "over",
+        "league": "nba"
+      },
+      {
+        "player": "Myles Turner",
+        "stat": "BLK",
+        "goal": 1,
+        "overOrUnder": "over",
+        "league": "nba"
+      },
       {
         "player": "Jordan Love",
         "stat": "passing_YDS",
-        "goal": 150,
+        "goal": 250,
+        "overOrUnder": "over",
+        "league": "nfl"
+      }
+    ]
+  },
+  {
+    "id": "bet-2",
+    "legs": [
+      {
+        "player": "Josh Jacobs",
+        "stat": "rushing_YDS",
+        "goal": 80,
+        "overOrUnder": "under",
+        "league": "nfl"
+      },
+      {
+        "player": "Josh Jacobs",
+        "stat": "rushing_TD",
+        "goal": 1,
         "overOrUnder": "over",
         "league": "nfl"
       },
       {
-        "player": "Myles Turner",
-        "stat": "PTS",
-        "goal": 30,
-        "overOrUnder": "under",
-        "league": "nba"
+        "player": "Chase Brown",
+        "stat": "rushing_YDS",
+        "goal": 50,
+        "overOrUnder": "over",
+        "league": "nfl"
       }
     ],
     "betAmount": 25,
-    "payoutAmount": 125
+    "payoutAmount": 150
+  },
+  {
+    "id": "bet-3",
+    "legs": [
+      {
+        "player": "Ja'Marr Chase",
+        "stat": "receiving_REC",
+        "goal": 12,
+        "overOrUnder": "over",
+        "league": "nfl"
+      },
+      {
+        "player": "Ja'Marr Chase",
+        "stat": "receiving_YDS",
+        "goal": 90,
+        "overOrUnder": "over",
+        "league": "nfl"
+      },
+      {
+        "player": "Ja'Marr Chase",
+        "stat": "receiving_TD",
+        "goal": 5,
+        "overOrUnder": "under",
+        "league": "nfl"
+      }
+    ]
+  },
+  {
+    "id": "bet-4",
+    "betAmount": 5,
+    "legs": [
+      {
+        "player": "Rashan Gary",
+        "stat": "defensive_TOT",
+        "goal": 5,
+        "overOrUnder": "over",
+        "league": "nfl"
+      },
+      {
+        "player": "Trey Hendrickson",
+        "stat": "defensive_SACKS",
+        "goal": 1,
+        "overOrUnder": "over",
+        "league": "nfl"
+      }
+    ]
+  },
+  {
+    "id": "bet-5",
+    "legs": [
+      {
+        "player": "Tucker Kraft",
+        "stat": "receiving_REC",
+        "goal": 4,
+        "overOrUnder": "under",
+        "league": "nfl"
+      },
+      {
+        "player": "Chase Brown",
+        "stat": "receiving_YDS",
+        "goal": 30,
+        "overOrUnder": "under",
+        "league": "nfl"
+      },
+      {
+        "player": "Andrei Iosivas",
+        "stat": "receiving_REC",
+        "goal": 2,
+        "overOrUnder": "under",
+        "league": "nfl"
+      }
+    ],
+    "payoutAmount": 100
+  },
+  {
+    "id": "bet-6",
+    "legs": [
+      {
+        "player": "Josh Jacobs",
+        "stat": "receiving_REC",
+        "goal": 3,
+        "overOrUnder": "over",
+        "league": "nfl"
+      },
+      {
+        "player": "Joe Flacco",
+        "stat": "passing_INT",
+        "goal": 1,
+        "overOrUnder": "under",
+        "league": "nfl"
+      },
+      {
+        "player": "Jordan Love",
+        "stat": "rushing_YDS",
+        "goal": 15,
+        "overOrUnder": "under",
+        "league": "nfl"
+      },
+      {
+        "player": "Tee Higgins",
+        "stat": "receiving_YDS",
+        "goal": 70,
+        "overOrUnder": "over",
+        "league": "nfl"
+      }
+    ]
   }
 ]
