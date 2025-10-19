@@ -30,7 +30,7 @@ export default function BetList({ bets, isLoading, error, onEditBet, onDeleteBet
         <div className="text-center bg-red-950/40 backdrop-blur-sm border border-red-500/30 rounded-xl p-8">
           <div className="text-red-400 text-4xl mb-3">⚠️</div>
           <p className="text-red-200 font-semibold">Failed to load bet data</p>
-          <p className="text-red-300/70 text-sm mt-2">Make sure the server is running on localhost:3001</p>
+          <p className="text-red-300/70 text-sm mt-2">Verify the Sweddy backend is reachable.</p>
         </div>
       </div>
     );

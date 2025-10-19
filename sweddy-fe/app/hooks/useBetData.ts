@@ -1,5 +1,6 @@
 import useSWR from "swr";
 import { EnrichedBet } from "../types/player";
+import { getApiBaseUrl } from "../config/api";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -10,7 +11,7 @@ const fetcher = async (url: string) => {
 
   return res.json();
 };
-export const buildRoomBetsKey = (roomId: string) => `http://localhost:3001/api/rooms/${roomId}/bets`;
+export const buildRoomBetsKey = (roomId: string) => `${getApiBaseUrl()}/rooms/${roomId}/bets`;
 
 export function useBetData(roomId: string) {
   const { data, error, isLoading } = useSWR<EnrichedBet[]>(buildRoomBetsKey(roomId), fetcher, {

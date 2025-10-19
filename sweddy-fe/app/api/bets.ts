@@ -1,6 +1,5 @@
 import { Bet, BetLeg } from "../types/player";
-
-export const API_BASE_URL = "http://localhost:3001/api";
+import { getApiBaseUrl } from "../config/api";
 
 export interface CreateBetRequest {
   legs: BetLeg[];
@@ -15,7 +14,8 @@ export interface UpdateBetRequest {
 }
 
 export async function requestRoomId(): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}/rooms`, {
+  const baseUrl = getApiBaseUrl();
+  const response = await fetch(`${baseUrl}/rooms`, {
     method: "POST",
   });
 
@@ -31,7 +31,8 @@ export async function requestRoomId(): Promise<string> {
  * Create a new bet
  */
 export async function createBet(roomId: string, bet: CreateBetRequest): Promise<Bet> {
-  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/bets`, {
+  const baseUrl = getApiBaseUrl();
+  const response = await fetch(`${baseUrl}/rooms/${roomId}/bets`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -51,7 +52,8 @@ export async function createBet(roomId: string, bet: CreateBetRequest): Promise<
  * Update an existing bet
  */
 export async function updateBet(roomId: string, id: string, bet: UpdateBetRequest): Promise<Bet> {
-  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/bets/${id}`, {
+  const baseUrl = getApiBaseUrl();
+  const response = await fetch(`${baseUrl}/rooms/${roomId}/bets/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -71,7 +73,8 @@ export async function updateBet(roomId: string, id: string, bet: UpdateBetReques
  * Delete a bet
  */
 export async function deleteBet(roomId: string, id: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/bets/${id}`, {
+  const baseUrl = getApiBaseUrl();
+  const response = await fetch(`${baseUrl}/rooms/${roomId}/bets/${id}`, {
     method: "DELETE",
   });
 
@@ -85,7 +88,8 @@ export async function deleteBet(roomId: string, id: string): Promise<void> {
  * Delete a specific leg from a bet
  */
 export async function deleteBetLeg(roomId: string, betId: string, legIndex: number): Promise<Bet> {
-  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/bets/${betId}/legs/${legIndex}`, {
+  const baseUrl = getApiBaseUrl();
+  const response = await fetch(`${baseUrl}/rooms/${roomId}/bets/${betId}/legs/${legIndex}`, {
     method: "DELETE",
   });
 
