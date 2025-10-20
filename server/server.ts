@@ -6,6 +6,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { randomBytes } from "crypto";
+import Fuse from "fuse.js";
 import { Bet, Player, PlayerCache, PlayerStats, ScoreboardResponse, SummaryResponse, NBABoxscore, NFLBoxscore } from "./types.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -27,6 +28,41 @@ app.use(
 app.use(express.json());
 
 const cache: PlayerCache = {}; // { playerNameLower: { team, stats, updatedAt } }
+
+// Load players for search
+interface PlayerSearchItem {
+  name: string;
+  league: string;
+}
+
+let playersData: PlayerSearchItem[] = [];
+let fuse: Fuse<PlayerSearchItem> | null = null;
+
+function loadPlayersForSearch() {
+  try {
+    const playersPath = path.join(__dirname, "players.json");
+    if (fs.existsSync(playersPath)) {
+      const data = fs.readFileSync(playersPath, "utf-8");
+      playersData = JSON.parse(data);
+
+      // Initialize Fuse.js with fuzzy search options
+      fuse = new Fuse(playersData, {
+        keys: ["name"],
+        threshold: 0.3, // Lower = more strict matching (0.0 is exact, 1.0 is match anything)
+        includeScore: true,
+        minMatchCharLength: 2,
+      });
+
+      console.log(`🔍 Loaded ${playersData.length} players for search`);
+    } else {
+      console.warn("⚠️ players.json not found. Run 'npm run refresh-players' to generate it.");
+    }
+  } catch (err: any) {
+    console.error("Error loading players.json:", err.message);
+  }
+}
+
+loadPlayersForSearch();
 
 type RoomBetMap = Record<string, Bet[]>;
 const ROOM_ID_LENGTH = 6;
@@ -451,6 +487,46 @@ app.delete("/api/rooms/:roomId/bets/:id/legs/:legIndex", (req: Request, res: Res
   } catch (err: any) {
     console.error("Error deleting leg:", err.message);
     res.status(500).json({ error: "Failed to delete leg" });
+  }
+});
+
+// GET /api/players/search - Search for players with fuzzy matching
+app.get("/api/players/search", (req: Request, res: Response) => {
+  try {
+    const query = req.query.q as string;
+    const league = req.query.league as string | undefined;
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    if (!query || query.trim().length < 2) {
+      return res.status(400).json({ error: "Query must be at least 2 characters" });
+    }
+
+    if (!fuse) {
+      return res.status(503).json({ error: "Player search not available. Players data not loaded." });
+    }
+
+    // Perform fuzzy search
+    let results = fuse.search(query, { limit: limit * 2 }); // Get extra results for filtering
+
+    // Filter by league if specified
+    if (league) {
+      results = results.filter(r => r.item.league === league.toLowerCase());
+    }
+
+    // Limit results
+    results = results.slice(0, limit);
+
+    // Return simplified results
+    const players = results.map(r => ({
+      name: r.item.name,
+      league: r.item.league,
+      score: r.score // Lower score = better match
+    }));
+
+    res.json({ players, total: players.length });
+  } catch (err: any) {
+    console.error("Error searching players:", err.message);
+    res.status(500).json({ error: "Failed to search players" });
   }
 });
 
