@@ -38,32 +38,6 @@ interface PlayerSearchItem {
 let playersData: PlayerSearchItem[] = [];
 let fuse: Fuse<PlayerSearchItem> | null = null;
 
-function loadPlayersForSearch() {
-  try {
-    const playersPath = path.join(__dirname, "players.json");
-    if (fs.existsSync(playersPath)) {
-      const data = fs.readFileSync(playersPath, "utf-8");
-      playersData = JSON.parse(data);
-
-      // Initialize Fuse.js with fuzzy search options
-      fuse = new Fuse(playersData, {
-        keys: ["name"],
-        threshold: 0.3, // Lower = more strict matching (0.0 is exact, 1.0 is match anything)
-        includeScore: true,
-        minMatchCharLength: 2,
-      });
-
-      console.log(`🔍 Loaded ${playersData.length} players for search`);
-    } else {
-      console.warn("⚠️ players.json not found. Run 'npm run refresh-players' to generate it.");
-    }
-  } catch (err: any) {
-    console.error("Error loading players.json:", err.message);
-  }
-}
-
-loadPlayersForSearch();
-
 type RoomBetMap = Record<string, Bet[]>;
 const ROOM_ID_LENGTH = 6;
 
@@ -79,6 +53,39 @@ const BETS_FILE_PATH = (() => {
   }
   return path.join(__dirname, "bets.json");
 })();
+
+const PLAYERS_FILE_PATH = (() => {
+  const envPath = process.env.PLAYERS_FILE_PATH;
+  if (envPath && envPath.trim().length > 0) {
+    return path.resolve(envPath);
+  }
+  return path.join(__dirname, "players.json");
+})();
+
+function loadPlayersForSearch() {
+  try {
+    if (fs.existsSync(PLAYERS_FILE_PATH)) {
+      const data = fs.readFileSync(PLAYERS_FILE_PATH, "utf-8");
+      playersData = JSON.parse(data);
+
+      // Initialize Fuse.js with fuzzy search options
+      fuse = new Fuse(playersData, {
+        keys: ["name"],
+        threshold: 0.3, // Lower = more strict matching (0.0 is exact, 1.0 is match anything)
+        includeScore: true,
+        minMatchCharLength: 2,
+      });
+
+      console.log(`🔍 Loaded ${playersData.length} players for search from ${PLAYERS_FILE_PATH}`);
+    } else {
+      console.warn(`⚠️ Players file not found at ${PLAYERS_FILE_PATH}. Run 'npm run refresh-players' to generate it.`);
+    }
+  } catch (err: any) {
+    console.error("Error loading players file:", err.message);
+  }
+}
+
+loadPlayersForSearch();
 
 function ensureDirectoryForFile(filePath: string) {
   const dir = path.dirname(filePath);
@@ -293,7 +300,7 @@ for (const league of LEAGUES) {
 if (!DATE) {
   // Only run once if no date is provided, because providing a date is for dev purposes
   for (const league of LEAGUES) {
-    setInterval(() => pollESPN(league, DATE), 15000);
+    setInterval(() => pollESPN(league, DATE), 150000);
   }
 }
 
@@ -505,22 +512,33 @@ app.get("/api/players/search", (req: Request, res: Response) => {
       return res.status(503).json({ error: "Player search not available. Players data not loaded." });
     }
 
+    // Easter egg: map "alien" or "long boi" to Victor Wembanyama
+    const easterEggs: { [key: string]: string } = {
+      alien: "Victor Wembanyama",
+      "long boi": "Victor Wembanyama",
+      longboi: "Victor Wembanyama",
+    };
+
+    const normalizedQuery = query.toLowerCase().trim();
+    const easterEggQuery = easterEggs[normalizedQuery];
+    const searchQuery = easterEggQuery || query;
+
     // Perform fuzzy search
-    let results = fuse.search(query, { limit: limit * 2 }); // Get extra results for filtering
+    let results = fuse.search(searchQuery, { limit: limit * 2 }); // Get extra results for filtering
 
     // Filter by league if specified
     if (league) {
-      results = results.filter(r => r.item.league === league.toLowerCase());
+      results = results.filter((r) => r.item.league === league.toLowerCase());
     }
 
     // Limit results
     results = results.slice(0, limit);
 
     // Return simplified results
-    const players = results.map(r => ({
+    const players = results.map((r) => ({
       name: r.item.name,
       league: r.item.league,
-      score: r.score // Lower score = better match
+      score: r.score, // Lower score = better match
     }));
 
     res.json({ players, total: players.length });
